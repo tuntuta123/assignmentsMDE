@@ -1,4 +1,4 @@
-""mm_cs = """
+mm_cs = """
     Dish:Class{
         constraint = ```
             nums = sorted(
