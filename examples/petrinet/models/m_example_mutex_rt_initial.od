@@ -1,0 +1,25 @@
+general_1_s:PNPlaceState {
+  numTokens = 1;
+}
+
+general_2_s:PNPlaceState {
+  numTokens = 1;
+}
+
+critical_1_s:PNPlaceState {
+  numTokens = 0;
+}
+
+critical_2_s:PNPlaceState {
+  numTokens = 0;
+}
+
+semaphore_s:PNPlaceState {
+  numTokens = 1;
+}
+
+:pn_of (general_1_s -> general_1)
+:pn_of (general_2_s -> general_2)
+:pn_of (critical_1_s -> critical_1)
+:pn_of (critical_2_s -> critical_2)
+:pn_of (semaphore_s -> semaphore)

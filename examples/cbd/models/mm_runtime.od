@@ -1,0 +1,47 @@
+# Link state ("signal")
+
+Signal:Class
+
+Signal_x:AttributeLink (Signal -> Integer) {
+  name = "x";
+  optional = False;
+}
+
+hasSignal:Association (OutPort -> Signal) {
+  # every Signal has 1 link
+  source_lower_cardinality = 1;
+  source_upper_cardinality = 1;
+
+   # every link has 0..1 Signals: 
+  target_upper_cardinality = 1;
+}
+
+
+# Delay block state
+# mandatory - otherwise we cannot determine the output signal of a delay block
+
+State:Class
+
+State_x:AttributeLink (State -> Integer) {
+  name = "x";
+  optional = False;
+}
+
+
+delay2State:Association (Delay -> State) {
+  # one-to-one
+  source_lower_cardinality = 1;
+  source_upper_cardinality = 1;
+  target_lower_cardinality = 1;
+  target_upper_cardinality = 1;
+}
+
+Clock:Class {
+  lower_cardinality = 1;
+  upper_cardinality = 1;
+}
+
+Clock_time:AttributeLink (Clock -> Integer) {
+  name = "time";
+  optional = False;
+}

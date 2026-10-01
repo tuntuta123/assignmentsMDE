@@ -1,0 +1,58 @@
+Block:Class {
+  abstract = True;
+}
+
+InPort:Class
+OutPort:Class
+
+hasInPort:Association (Block -> InPort) {
+  # Every Port contained by exactly one Block:
+  source_lower_cardinality = 1;
+  source_upper_cardinality = 1;
+}
+hasOutPort:Association (Block -> OutPort) {
+  # Every Port contained by exactly one Block:
+  source_lower_cardinality = 1;
+  source_upper_cardinality = 1;
+}
+
+link:Association (OutPort -> InPort) {
+  # Every InPort connected to exactly one OutPort
+  source_lower_cardinality = 1;
+  source_upper_cardinality = 1;
+}
+
+
+# Function Block: pure function that computes outputs based on inputs
+
+Function:Class
+:Inheritance (Function -> Block)
+
+Function_func:AttributeLink (Function -> ActionCode) {
+  name = "func";
+  optional = False;
+}
+
+DetailedFunction:Class
+:Inheritance (DetailedFunction -> Function)
+
+VeryDetailedFunction:Class
+:Inheritance (VeryDetailedFunction -> DetailedFunction)
+
+
+
+# Delay Block
+
+Delay:Class {
+  constraint = ```
+    errors = []
+    num_inports = len(get_outgoing(this, "hasInPort"))
+    num_outports = len(get_outgoing(this, "hasOutPort"))
+    if num_inports != 1:
+      errors.append(f"Delay block must have one inport, instead got {num_inports}")
+    if num_outports != 1:
+      errors.append(f"Delay block must have one inport, instead got {num_outports}")
+    errors
+  ```;
+}
+:Inheritance (Delay -> Block)

@@ -1,0 +1,9 @@
+# We create the 'Top'-class with a GlobalCondition, because that's the only way we can control the name of the object to be created.
+
+Top:RAM_Class {
+  RAM_abstract = `True`;
+}
+
+generic_link:RAM_Association (Top -> Top)
+
+:RAM_Inheritance (generic_link -> Top)

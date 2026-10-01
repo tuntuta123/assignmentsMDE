@@ -1,0 +1,5 @@
+
+:GlobalCondition {
+  # No NAC
+  condition = `False`;
+}

@@ -1,0 +1,14 @@
+# We cannot advance time until all outports have signals
+
+# BTW, this NAC is not really necessary, because our schedule already will only try to match 'advance_time' when no other actions are enabled
+
+:GlobalCondition {
+  condition = ```
+    missing_signals = False
+    for _, outport in get_all_instances("OutPort"):
+      if len(get_outgoing(outport, 'hasSignal')) == 0:
+        missing_signals = True
+        break
+    missing_signals
+  ```;
+}
