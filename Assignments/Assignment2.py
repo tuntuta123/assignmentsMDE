@@ -1,10 +1,18 @@
-mm_cs = """
+""mm_cs = """
     Dish:Class{
         constraint = ```
-            get_slot_value(this, "difficulty") > 0
-            get_slot_value(this, "cooktime") >= 0
-            get_slot_value(get_slot(this, "serves") > 0
-        ```;    
+            nums = sorted(
+                get_slot_value(get_target(l), "number")
+                for l in get_outgoing(this, "hasStep")
+            )
+
+            (
+                get_slot_value(this, "difficulty") > 0
+                and get_slot_value(this, "cooktime") >= 0
+                and get_slot_value(this, "serves") > 0
+                and nums == list(range(1, len(nums) + 1))
+            )
+        ```;
     }
 
     Dish_dishName:AttributeLink(Dish -> String){
@@ -27,23 +35,23 @@ mm_cs = """
         optional= False;
     }
 
-    Steps:Class{
-        # constraint = '''
-        # 
-        # ''';    
+    Step:Class {
+        constraint = ```
+            get_slot_value(this, "number") >= 1 and get_slot_value(this, "duration") >= 0
+        ```;
     }
     
-    Step_description:AttributeLink(Steps -> String){
+    Step_description:AttributeLink(Step -> String){
         name="description";
         optional= False;
     }
     
-    Step_number:AttributeLink(Steps -> Integer){
+    Step_number:AttributeLink(Step -> Integer){
         name="number";
         optional= False;
     }
     
-    Step_duration:AttributeLink(Steps -> Integer){
+    Step_duration:AttributeLink(Step -> Integer){
         name="duration";
         optional= False;
     }
@@ -123,6 +131,32 @@ mm_cs = """
         name = "skillLevel";
         optional = False;
     }
+
+    #associations
+
+    hasStep:Association (Dish -> Step) {
+        target_lower_cardinality = 1;
+        source_lower_cardinality = 1;
+        source_upper_cardinality = 1;
+    }
+
+    nextStep:Association (Step -> Step) {
+        target_upper_cardinality = 1;
+        source_upper_cardinality = 1;
+    }
+
+    hasAction:Association (Step -> Action) {
+        target_lower_cardinality = 1;
+        target_upper_cardinality = 1;
+    }
+
+    hasCook:Association (Step -> Cook) {
+        target_lower_cardinality = 1;
+    }
+
+    hasIngredient:Association (Step -> Ingredient)
+
+    hasTool:Association (Step -> Tool)
     
 """
 
