@@ -1,16 +1,16 @@
 mm_cs = """
     Dish:Class{
         constraint = ```
-            nums = sorted(
-                get_slot_value(get_target(l), "number")
-                for l in get_outgoing(this, "hasStep")
-            )
+            steps = [get_target(l) for l in get_outgoing(this, "hasStep")]  # collect all steps connected to this dish
+            nums = sorted(get_slot_value(step, "number") for step in steps) 
+            total_duration = sum(get_slot_value(step, "duration") for step in steps)
 
             (
                 get_slot_value(this, "difficulty") > 0
                 and get_slot_value(this, "cooktime") >= 0
                 and get_slot_value(this, "serves") > 0
                 and nums == list(range(1, len(nums) + 1))
+                and total_duration <= get_slot_value(this, "cooktime")
             )
         ```;
     }
@@ -37,7 +37,16 @@ mm_cs = """
 
     Step:Class {
         constraint = ```
-            get_slot_value(this, "number") >= 1 and get_slot_value(this, "duration") >= 0
+            dish = get_source(get_incoming(this, "hasStep")[0])
+            dish_difficulty = get_slot_value(dish, "difficulty")
+            
+            # all cooks need to be skilled enough for the dish
+            cooks_meet_skill_level = all(
+                get_slot_value(get_target(cook_link), "skillLevel") >= dish_difficulty
+                for cook_link in get_outgoing(this, "hasCook")
+            )
+            
+            get_slot_value(this, "number") >= 1 and get_slot_value(this, "duration") >= 0 and cooks_meet_skill_level
         ```;
     }
     
