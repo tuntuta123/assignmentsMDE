@@ -11,6 +11,7 @@ mm_cs = """
                 and get_slot_value(this, "serves") > 0
                 and nums == list(range(1, len(nums) + 1))
                 and total_duration <= get_slot_value(this, "cooktime")
+                and sum(len(get_outgoing(s, "nextStep")) for s in steps) == len(steps) - 1 # silly check for step count
             )
         ```;
     }
@@ -45,8 +46,18 @@ mm_cs = """
                 get_slot_value(get_target(cook_link), "skillLevel") >= dish_difficulty
                 for cook_link in get_outgoing(this, "hasCook")
             )
-            
-            get_slot_value(this, "number") >= 1 and get_slot_value(this, "duration") >= 0 and cooks_meet_skill_level
+
+            #action and tool corresp
+            action = get_type_name(get_target(get_outgoing(this, "hasAction")[0]))
+            tools = [get_type_name(get_target(l)) for l in get_outgoing(this, "hasTool")]
+            (
+                get_slot_value(this, "number") >= 1
+                and get_slot_value(this, "duration") >= 0
+                and cooks_meet_skill_level
+                and (action != "Cutting" or "Knife" in tools)
+                and (action != "Baking" or "Oven" in tools)
+                and (action != "Mixing" or "Pot" in tools)
+            )
         ```;
     }
     
