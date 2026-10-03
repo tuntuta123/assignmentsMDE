@@ -126,10 +126,18 @@ mm_cs = """
         abstract = True;
     }
     
-    Stove:Class
-    Oven:Class
-    Pot:Class
-    Knife:Class
+    Stove:Class {
+        upper_cardinality = 4;
+    }
+    Oven:Class {
+        upper_cardinality = 1;
+    }
+    Pot:Class {
+        upper_cardinality = 6;
+    }
+    Knife:Class {
+        upper_cardinality = 6;
+    }
     
     :Inheritance (Stove -> Tool)
     :Inheritance (Oven -> Tool)
