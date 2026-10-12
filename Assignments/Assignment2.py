@@ -42,10 +42,10 @@ mm_cs = """
             dish_difficulty = get_slot_value(dish, "difficulty")
             
             # all cooks need to be skilled enough for the dish
-            cooks_meet_skill_level = all(
-                get_slot_value(get_target(cook_link), "skillLevel") >= dish_difficulty
-                for cook_link in get_outgoing(this, "hasCook")
-            )
+            cooks_meet_skill_level = True
+            for cook_link in get_outgoing(this, "hasCook"):
+                if get_slot_value(get_target(cook_link), "skillLevel") < dish_difficulty:
+                    cooks_meet_skill_level = False
 
             #action and tool corresp
             action = get_type_name(get_target(get_outgoing(this, "hasAction")[0]))
@@ -57,6 +57,7 @@ mm_cs = """
                 and (action != "Cutting" or "Knife" in tools)
                 and (action != "Baking" or "Oven" in tools)
                 and (action != "Mixing" or "Pot" in tools)
+                and (action != "Cooking" or "Stove" in tools)
             )
         ```;
     }
@@ -205,8 +206,85 @@ mm = parser.parse_od(state, m_text=mm_cs, mm=mmm)
 conf = Conformance(state, mm, mmm)
 print(render_conformance_check_result(conf.check_nominal()))
 
+conforming_model = """
+    boiledNoodles:Dish {
+    dishName = "boiled noodles";
+    difficulty = 1;
+    cooktime = 15; #minutes
+    serves = 2;
+    }
+
+    chef:Cook {
+    name = "Freddy";
+    skillLevel = 1;
+    }
+
+    pot:Pot
+    stove:Stove
+
+    water:Water {
+        unit = "liter";
+        amount = 2;
+    }
+    noodles:Noodles {
+        unit = "grams";
+        amount = 200;
+    }
+    salt:Salt {
+        unit = "grams";
+        amount = 5;
+    }
+
+    cooking:Cooking {
+        attended = True;
+    }
+    mixing:Mixing {
+        attended = True;
+    }
+
+    step1:Step {
+        number = 1;
+        description = "Boil water and cook the noodles";
+        duration = 10;
+    }
+
+    step2:Step {
+        number = 2;
+        description = "add salt and mix";
+        duration = 2;
+    }
+
+    :hasStep (boiledNoodles -> step1)
+    :hasStep (boiledNoodles -> step2)
+
+    :nextStep (step1 -> step2)
+
+    :hasAction (step1 -> cooking)
+    :hasAction (step2 -> mixing)
+
+    :hasCook (step1 -> chef)
+    :hasCook (step2 -> chef)
+
+    :hasIngredient (step1 -> water)
+    :hasIngredient (step1 -> noodles)
+    :hasIngredient (step2 -> salt)
+
+    :hasTool (step1 -> pot)
+    :hasTool (step1 -> stove)
+    :hasTool (step2 -> pot)
+
+"""
+
+m_conform = parser.parse_od(state, m_text=conforming_model, mm=mm)
+
+# does our model conform to the mm?
+conf = Conformance(state, m_conform, mm)
+print(render_conformance_check_result(conf.check_nominal()))
+
 uml = (""
        + plantuml.render_package("Meta-model", plantuml.render_class_diagram(state, mm))    # render our meta model
+       + plantuml.render_package("Conforming model", plantuml.render_object_diagram(state, m_conform, mm))
+      # + plantuml.render_trace_conformance(state, m_conform, mm)   # we can add this, but it just makes it harder to read in my opinion
        )
 
 print()
