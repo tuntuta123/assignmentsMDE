@@ -103,6 +103,8 @@ mm_cs = """
         ```;
     }
     
+    Steak:Class
+    Vegetable:Class
     Noodles:Class
     Salt:Class
     Water:Class
@@ -112,6 +114,8 @@ mm_cs = """
     :Inheritance (Salt -> Ingredient)
     :Inheritance (Water -> Ingredient)
     :Inheritance (Flour -> Ingredient)
+    :Inheritance (Steak -> Ingredient)
+    :Inheritance (Vegetable -> Ingredient)
     
     Ingredient_unit:AttributeLink(Ingredient -> String){
         name = "unit";
@@ -275,17 +279,117 @@ conforming_model = """
 
 """
 
+non_conforming_model = """
+    fajita:Dish {
+        dishName = "beef fajita";
+        difficulty = 2;
+        cooktime = 45;
+        serves = 1;
+    }
+
+    #non conform, he will probably burn the food
+    chef:Cook {
+        name = "Jimmy";
+        skillLevel = 1;
+    }
+
+    pot:Pot
+    stove:Stove
+    knife:Knife
+
+    steak:Steak {
+        unit = "grams";
+        amount = 350;
+    }
+
+    vegetable:Vegetable {
+        unit = "cups";
+        amount = 1;
+    }
+
+    cooking:Cooking {
+        attended = True;
+    }
+
+    cutting:Cutting {
+        attended = True;
+    }
+
+    badStep1:Step {
+        number = 1;
+        description = "Slice the beef and the vegetables";
+        duration = 15;
+    }
+
+    badStep2:Step {
+        number = 2;
+        description = "Cook the steak";
+        duration = 5;
+    }
+
+    badStep3:Step {
+        number = 3;
+        description = "Add the vegetables and continue";
+        duration = 5;
+    }
+
+    :hasStep (fajita -> badStep1)
+    :hasStep (fajita -> badStep2)
+    :hasStep (fajita -> badStep3)
+
+    :nextStep (badStep1 -> badStep2)   
+    :nextStep (badStep2 -> badStep3)
+
+    :hasAction (badStep1 -> cutting)
+    :hasAction (badStep2 -> cooking)
+    :hasAction (badStep3 -> cooking)
+
+    #should fail
+    :hasCook (badStep1 -> chef)
+    :hasCook (badStep2 -> chef)
+    :hasCook (badStep3 -> chef)
+
+    :hasIngredient (badStep1 -> steak)
+    :hasIngredient (badStep1 -> vegetable)
+    :hasIngredient (badStep2 -> steak)
+    :hasIngredient (badStep3 -> steak)
+    :hasIngredient (badStep3 -> vegetable)
+
+    :hasTool (badStep1 -> knife)
+    :hasTool (badStep2 -> pot)
+    :hasTool (badStep2 -> stove)
+    :hasTool (badStep3 -> pot)
+    :hasTool (badStep3 -> stove)
+
+"""
 m_conform = parser.parse_od(state, m_text=conforming_model, mm=mm)
+m_nonconform = parser.parse_od(state, m_text=non_conforming_model, mm=mm)
 
 # does our model conform to the mm?
 conf = Conformance(state, m_conform, mm)
+non_conf = Conformance(state, m_nonconform, mm)
 print(render_conformance_check_result(conf.check_nominal()))
+print(render_conformance_check_result(non_conf.check_nominal()))
 
-uml = (""
-       + plantuml.render_package("Meta-model", plantuml.render_class_diagram(state, mm))    # render our meta model
-       + plantuml.render_package("Conforming model", plantuml.render_object_diagram(state, m_conform, mm))
-      # + plantuml.render_trace_conformance(state, m_conform, mm)   # we can add this, but it just makes it harder to read in my opinion
-       )
 
-print()
-print("PlantUML output:", make_url(uml))
+#added seperate uml's because they didn't fit
+uml_mm = plantuml.render_package(
+    "Meta-model",
+    plantuml.render_class_diagram(state, mm)
+)
+
+uml_conform = plantuml.render_package(
+    "Conforming",
+    plantuml.render_object_diagram(state, m_conform, mm)
+)
+
+uml_nonconform = plantuml.render_package(
+    "Non-conforming",
+    plantuml.render_object_diagram(state, m_nonconform, mm)
+)
+
+print("Meta-model:", make_url(uml_mm))
+print("\n")
+print("Conforming model:", make_url(uml_conform))
+print("\n")
+print("Non-conforming model:", make_url(uml_nonconform))
