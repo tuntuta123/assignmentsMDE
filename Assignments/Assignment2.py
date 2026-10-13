@@ -9,7 +9,7 @@ mm_cs = """
                 get_slot_value(this, "difficulty") > 0
                 and get_slot_value(this, "cooktime") >= 0
                 and get_slot_value(this, "serves") > 0
-                and nums == list(range(1, len(nums) + 1))
+                and nums == list(range(1, len(nums) + 1))   # check if there are no gaps between steps
                 and total_duration <= get_slot_value(this, "cooktime")
                 and sum(len(get_outgoing(s, "nextStep")) for s in steps) == len(steps) - 1 # silly check for step count
             )
@@ -47,7 +47,7 @@ mm_cs = """
                 if get_slot_value(get_target(cook_link), "skillLevel") < dish_difficulty:
                     cooks_meet_skill_level = False
 
-            #action and tool corresp
+            #actions need a corresponding tool
             action = get_type_name(get_target(get_outgoing(this, "hasAction")[0]))
             tools = [get_type_name(get_target(l)) for l in get_outgoing(this, "hasTool")]
             (
@@ -365,7 +365,7 @@ non_conforming_model = """
 m_conform = parser.parse_od(state, m_text=conforming_model, mm=mm)
 m_nonconform = parser.parse_od(state, m_text=non_conforming_model, mm=mm)
 
-# does our model conform to the mm?
+# do our models conform to the mm?
 conf = Conformance(state, m_conform, mm)
 non_conf = Conformance(state, m_nonconform, mm)
 print(render_conformance_check_result(conf.check_nominal()))
