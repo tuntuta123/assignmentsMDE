@@ -20,7 +20,7 @@ def precondition_previous_step_completed(od: ODAPI, step_state: str):
 
     previous_step_state = od.get_source(od.get_incoming(previous_step, "stateOfStep")[0])
 
-    return od.get_slot_value(previous_step_state, "finishedAt") is not None
+    return od.has_slot(previous_step_state, "finishedAt") and od.get_slot_value(previous_step_state, "finishedAt") < get_time(od)
 
 
 
@@ -61,7 +61,7 @@ def precondition_cooks_free(od: ODAPI, step: str):
     return precondition_cooks_not_moved(od, step)
 
 def precondition_can_start_step(od: ODAPI, step_state: str):
-    # TODO: Check whether all conditions to start the step are met
+    # Check whether all conditions to start the step are met
     step_state = od.get(step_state)
     step = od.get_target(od.get_outgoing(step_state, "stateOfStep")[0])
 
@@ -82,14 +82,30 @@ def precondition_can_start_step(od: ODAPI, step_state: str):
 
 def precondition_can_finish_step(od: ODAPI, step_state: str):
     # Check whether all conditions to finish the step are met
+    step_state = od.get(step_state)
+
+    if not od.has_slot(step_state, "startedAt"):
+        return False
+
     if od.has_slot(step_state, "finishedAt"):
         return False
 
-    step = od.get_target(
-        od.get_outgoing(step_state, "stateOfStep")[0]
-    )
+    step = od.get_target(od.get_outgoing(step_state, "stateOfStep")[0])
 
-    return get_time(od) - od.get_slot_value(step_state, "startedAt")>= od.get_slot_value(step, "duration")
+    # cook is busy with another thing
+    if not precondition_cooks_not_moved(od, od.get_name(step)):
+        return False
+
+    action = od.get_target(od.get_outgoing(step, "hasAction")[0])
+
+    # if the action is not attended and there are no free cooks, action can't complete
+    if not od.get_slot_value(action, "attended"):
+        if not precondition_cooks_free(od, od.get_name(step)):
+            return False
+
+    duration = od.get_slot_value(step, "duration")
+
+    return (get_time(od) - od.get_slot_value(step_state, "startedAt") >= max(1, duration))
 
 
 def precondition_can_serve_order(od: ODAPI, order: str):
@@ -97,7 +113,7 @@ def precondition_can_serve_order(od: ODAPI, order: str):
     order = od.get(order)
     time = get_time(od)
 
-    step_states = [od.get_source(link) for link in od.get_incoming(order, "stateOfStep")]
+    step_states = [od.get_source(link) for link in od.get_incoming(order, "stateOfOrder")]
 
     for state in step_states:
         if not od.has_slot(state, "finishedAt"):
@@ -119,28 +135,102 @@ def precondition_can_take_order(od: ODAPI):
     return True
 
 def action_take_order(od: ODAPI, dish: str):
-    # TODO: Create a new order for the dish and all other needed instances
-    raise NotImplementedError()
+    # Create a new order for the dish and all other needed instances
+    dish = od.get(dish)
+    time = get_time(od)
 
+    number = len(od.get_all_instances("Order")) + 1
+    order = od.create_object(f"Order{number}", "Order")
+
+    od.set_slot_value(order, "arrivedAt", time)
+    od.create_link(None, "OrderDish", order, dish)
+
+    steps = [od.get_target(link) for link in od.get_outgoing(dish, "hasStep")]
+
+    for step in steps:
+        step_state = od.create_object(f"Order{number}_{od.get_name(step)}State","StepState")
+
+        od.create_link(None, "stateOfStep", step_state, step)
+        od.create_link(None, "stateOfOrder", step_state, order)
+
+    return [f"Order {number} for {od.get_slot_value(dish, 'dishName')} accepted"]
 
 def action_start_step(od: ODAPI, step_state: str):
-    # TODO: Claim all resources and remember the start time
-    raise NotImplementedError()
+    # Claim all resources and remember the start time
+    step_state = od.get(step_state)
+    time = get_time(od)
+
+    od.set_slot_value(step_state, "startedAt", time)
+    step = od.get_target(od.get_outgoing(step_state, "stateOfStep")[0])
+
+    required_tools = [od.get_target(link) for link in od.get_outgoing(step, "hasTool")]
+
+    for tool in required_tools:
+        tool_state = od.get_source(od.get_incoming(tool, "stateOfTool")[0])
+        od.set_slot_value(tool_state, "inUse", True)
+
+    action = od.get_target(od.get_outgoing(step, "hasAction")[0])
+    attended = od.get_slot_value(action, "attended")
+
+    required_cooks = [od.get_target(link) for link in od.get_outgoing(step, "hasCook")]
+
+    for cook in required_cooks:
+        cook_state = od.get_source(od.get_incoming(cook, "stateOfCook")[0])
+        od.set_slot_value(cook_state, "busy", attended)
+        od.set_slot_value(cook_state, "lastMovedAt", time)
+
+    return [f"Step {od.get_name(step)} started at time {time}"]
 
 
 def action_finish_step(od: ODAPI, step_state: str):
-    # TODO: Release all resources and remember the finish time
-    raise NotImplementedError()
+    # Release all resources and remember the finish time
+    step_state = od.get(step_state)
+    time = get_time(od)
+
+    od.set_slot_value(step_state, "finishedAt", time)
+    step = od.get_target(od.get_outgoing(step_state, "stateOfStep")[0])
+
+    required_tools = [od.get_target(link) for link in od.get_outgoing(step, "hasTool")]
+
+    for tool in required_tools:
+        tool_state = od.get_source(od.get_incoming(tool, "stateOfTool")[0])
+        od.set_slot_value(tool_state, "inUse", False)
+
+    required_cooks = [od.get_target(link) for link in od.get_outgoing(step, "hasCook")]
+
+    for cook in required_cooks:
+        cook_state = od.get_source(od.get_incoming(cook, "stateOfCook")[0])
+        od.set_slot_value(cook_state, "busy", False)
+        od.set_slot_value(cook_state, "lastMovedAt", time)
+
+    return [f"Step {od.get_name(step)} finished at time {time}"]
 
 
 def action_serve_order(od: ODAPI, order: str):
-    # TODO: Remove the order and all associated elements from the model and increase the count
-    raise NotImplementedError()
+    # Remove the order and all associated elements from the model and increase the count
+    order = od.get(order)
+
+    dish = od.get_target( od.get_outgoing(order, "OrderDish")[0])
+
+    dish_state = od.get_source(od.get_incoming(dish, "stateOfDish")[0])
+
+    od.set_slot_value(dish_state,"served", od.get_slot_value(dish_state, "served") + 1)
+
+    step_states = [ od.get_source(link) for link in od.get_incoming(order, "stateOfOrder")]
+
+    for step_state in step_states:
+        od.delete(step_state)
+
+    od.delete(order)
+
+    return [f"Order for {od.get_slot_value(dish, 'dishName')} served"]
 
 
 def action_advance_time(od: ODAPI):
-    # TODO: Advance the clock
-    raise NotImplementedError()
+    #  Advance the clock - copied from demo
+    _, clock = od.get_all_instances("Clock")[0]
+    od.set_slot_value(clock, "time", get_time(od) + 1)
+    return [f"Time updated to {get_time(od)}"]
 
 def get_time(od: ODAPI):
     _, clock = od.get_all_instances("Clock")[0]
