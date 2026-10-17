@@ -253,6 +253,12 @@ rt_mm_dish = mm_dish + """
         target_lower_cardinality = 1;
         target_upper_cardinality = 1;
     }
+    
+    stateOfOrder:Association (StepState -> Order) {
+        target_lower_cardinality = 1;
+        target_upper_cardinality = 1;
+    }
+      
     StepState_startedAt:AttributeLink (StepState -> Integer){
         name = "startedAt";
         optional = False;

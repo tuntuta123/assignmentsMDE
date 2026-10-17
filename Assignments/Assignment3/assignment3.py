@@ -1,47 +1,122 @@
 from functools import partial
 from api.od import ODAPI
+from examples.ftg_pm_pt.helpers.composite_activity import get_target_outgoing
 from transformation.cloner import clone_od
 
 
 def precondition_previous_step_completed(od: ODAPI, step_state: str):
-    # TODO: Check whether the preceding step was completed for the same order
-    raise NotImplementedError()
+    # Check whether the preceding step was completed for the same order
+    step_state = od.get(step_state)
+
+    step = od.get_target(od.get_outgoing(step_state, "stateOfStep")[0])
+
+    previous_link = od.get_incoming(step, "nextStep")
+
+    # first step doesn't have a previous step
+    if not previous_link:
+        return True
+
+    previous_step = od.get_source(previous_link[0])
+
+    previous_step_state = od.get_source(od.get_incoming(previous_step, "stateOfStep")[0])
+
+    return od.get_slot_value(previous_step_state, "finishedAt") is not None
+
 
 
 def precondition_tools_free(od: ODAPI, step: str):
-    # TODO: Check whether all tools needed in this step are available
-    raise NotImplementedError()
+    # Check whether all tools needed in this step are ava ilable
+    step = od.get(step)
+    required_tools = [od.get_target(link) for link in od.get_outgoing(step, "hasTool")]
+
+    for tool in required_tools:
+        tool_state = od.get_source(od.get_incoming(tool, "stateOfTool")[0])
+        if od.get_slot_value(tool_state, "inUse"):
+            return False
+    return True
 
 
 def precondition_cooks_not_moved(od: ODAPI, step: str):
-    # TODO: Check whether none of the associated cooks has already performed an action in this time-step
-    raise NotImplementedError()
+    # Check whether none of the associated cooks has already performed an action in this time-step
+    step = od.get(step)
+    cooks = [od.get_target(link) for link in od.get_outgoing(step, "hasCook")]
 
+    time = get_time(od)
+    for cook in cooks:
+        cook_state = od.get_source(od.get_incoming(cook, "stateOfCook")[0])
+        if od.get_slot_value(cook_state, "lastMovedAt") == time:
+            return False
+    return True
 
 def precondition_cooks_free(od: ODAPI, step: str):
-    # TODO: Check whether all associated cooks are available (not busy and didn't already act)
-    raise NotImplementedError()
+    # Check whether all associated cooks are available (not busy and didn't already act)
+    step = od.get(step)
+    cooks = [od.get_target(link) for link in od.get_outgoing(step, "hasCook")]
 
+    for cook in cooks:
+        cook_state = od.get_source(od.get_incoming(cook, "stateOfCook")[0])
+        if od.get_slot_value(cook_state, "busy"):
+            return False
+
+    return precondition_cooks_not_moved(od, step)
 
 def precondition_can_start_step(od: ODAPI, step_state: str):
     # TODO: Check whether all conditions to start the step are met
-    raise NotImplementedError()
+    step_state = od.get(step_state)
+    step = od.get_target(od.get_outgoing(step_state, "stateOfStep")[0])
 
+    # step shouldn't be already started
+    if od.has_slot(step_state, "startedAt"):
+        return False
+
+    if not precondition_previous_step_completed(od, step_state):
+        return False
+
+    if not precondition_tools_free(od, step):
+        return False
+
+    if not precondition_cooks_free(od, step):
+        return False
+
+    return True
 
 def precondition_can_finish_step(od: ODAPI, step_state: str):
-    # TODO: Check whether all conditions to finish the step are met
-    raise NotImplementedError()
+    # Check whether all conditions to finish the step are met
+    if od.has_slot(step_state, "finishedAt"):
+        return False
+
+    step = od.get_target(
+        od.get_outgoing(step_state, "stateOfStep")[0]
+    )
+
+    return get_time(od) - od.get_slot_value(step_state, "startedAt")>= od.get_slot_value(step, "duration")
 
 
 def precondition_can_serve_order(od: ODAPI, order: str):
-    # TODO: Check that all steps of the order were completed before the current time
-    raise NotImplementedError()
+    # Check that all steps of the order were completed before the current time
+    order = od.get(order)
+    time = get_time(od)
 
+    step_states = [od.get_source(link) for link in od.get_incoming(order, "stateOfStep")]
+
+    for state in step_states:
+        if not od.has_slot(state, "finishedAt"):
+            return False
+
+        if od.get_slot_value(state, "finishedAt") >= time:
+            return False
+
+    return True
 
 def precondition_can_take_order(od: ODAPI):
-    # TODO: Check whether an order can be accepted in the current timestep (no other order was accepted already)
-    raise NotImplementedError()
+    # Check whether an order can be accepted in the current timestep (no other order was accepted already)
+    time = get_time(od)
 
+    for _, order in od.get_all_instances("Order"):
+        if od.get_slot_value(order, "arrivedAt") == time:
+            return False
+
+    return True
 
 def action_take_order(od: ODAPI, dish: str):
     # TODO: Create a new order for the dish and all other needed instances
@@ -67,6 +142,9 @@ def action_advance_time(od: ODAPI):
     # TODO: Advance the clock
     raise NotImplementedError()
 
+def get_time(od: ODAPI):
+    _, clock = od.get_all_instances("Clock")[0]
+    return od.get_slot_value(clock, "time")
 
 def get_actions(od: ODAPI):
     """
