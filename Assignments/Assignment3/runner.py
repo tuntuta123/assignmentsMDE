@@ -6,13 +6,28 @@ from util.loader import parse_and_check
 from models import mm_dish, m_dish, rt_mm_dish, rt_m_dish
 from simulator import KitchenSimulator
 
-from assignment3 import get_actions, termination_condition
+from assignment3 import get_actions, termination_condition, get_time
 
 
 def render_text(od: ODAPI):
-    # TODO: Implement, so a short description of the current state is printed
-    txt = ""
-    return txt
+    # Short description of the current state
+    parts = []
+
+    # served count per dish, and the total out of the 3 needed to finish the shift
+    total_served = 0
+    for _, dish_state in od.get_all_instances("DishState"):
+        dish = od.get_target(od.get_outgoing(dish_state, "stateOfDish")[0])
+        served = od.get_slot_value(dish_state, "served")
+        total_served += served
+        parts.append(f"{od.get_slot_value(dish, 'dishName')}: {served} served")
+
+    # all open orders with their arrival time
+    for order_name, order in od.get_all_instances("Order"):
+        dish = od.get_target(od.get_outgoing(order, "OrderDish")[0])
+        parts.append(f"{order_name} for {od.get_slot_value(dish, 'dishName')} (arrived at {od.get_slot_value(order, 'arrivedAt')})")
+
+    header = f"[t = {get_time(od)} | {total_served}/3 served]"
+    return " - ".join([header] + parts)
 
 
 state = DevState()
