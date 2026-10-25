@@ -1,6 +1,5 @@
 from functools import partial
 from api.od import ODAPI
-from examples.ftg_pm_pt.helpers.composite_activity import get_target_outgoing
 from transformation.cloner import clone_od
 
 
@@ -18,7 +17,16 @@ def precondition_previous_step_completed(od: ODAPI, step_state: str):
 
     previous_step = od.get_source(previous_link[0])
 
-    previous_step_state = od.get_source(od.get_incoming(previous_step, "stateOfStep")[0])
+    # the previous step can have a StepState for several orders, pick the one of this order
+    order = od.get_target(od.get_outgoing(step_state, "stateOfOrder")[0])
+    previous_step_state = None
+    for link in od.get_incoming(previous_step, "stateOfStep"):
+        candidate = od.get_source(link)
+        if od.get_target(od.get_outgoing(candidate, "stateOfOrder")[0]) == order:
+            previous_step_state = candidate
+
+    if previous_step_state is None:
+        return False
 
     return od.has_slot(previous_step_state, "finishedAt") and od.get_slot_value(previous_step_state, "finishedAt") < get_time(od)
 
@@ -44,7 +52,7 @@ def precondition_cooks_not_moved(od: ODAPI, step: str):
     time = get_time(od)
     for cook in cooks:
         cook_state = od.get_source(od.get_incoming(cook, "stateOfCook")[0])
-        if od.get_slot_value(cook_state, "lastMovedAt") == time:
+        if od.get_slot_value_default(cook_state, "lastMovedAt", None) == time:
             return False
     return True
 
@@ -58,7 +66,7 @@ def precondition_cooks_free(od: ODAPI, step: str):
         if od.get_slot_value(cook_state, "busy"):
             return False
 
-    return precondition_cooks_not_moved(od, step)
+    return precondition_cooks_not_moved(od, od.get_name(step))
 
 def precondition_can_start_step(od: ODAPI, step_state: str):
     # Check whether all conditions to start the step are met
@@ -69,13 +77,13 @@ def precondition_can_start_step(od: ODAPI, step_state: str):
     if od.has_slot(step_state, "startedAt"):
         return False
 
-    if not precondition_previous_step_completed(od, step_state):
+    if not precondition_previous_step_completed(od, od.get_name(step_state)):
         return False
 
-    if not precondition_tools_free(od, step):
+    if not precondition_tools_free(od, od.get_name(step)):
         return False
 
-    if not precondition_cooks_free(od, step):
+    if not precondition_cooks_free(od, od.get_name(step)):
         return False
 
     return True
@@ -134,12 +142,30 @@ def precondition_can_take_order(od: ODAPI):
 
     return True
 
+def precondition_can_advance_time(od: ODAPI):
+    # The clock may only move on once every possible action has been carried out,
+    # receiving orders is excluded, so it is not checked here
+    for step_state_name, _ in od.get_all_instances("StepState"):
+        if precondition_can_start_step(od, step_state_name):
+            return False
+        if precondition_can_finish_step(od, step_state_name):
+            return False
+
+    for order_name, _ in od.get_all_instances("Order"):
+        if precondition_can_serve_order(od, order_name):
+            return False
+
+    return True
+
 def action_take_order(od: ODAPI, dish: str):
     # Create a new order for the dish and all other needed instances
     dish = od.get(dish)
     time = get_time(od)
 
-    number = len(od.get_all_instances("Order")) + 1
+    # Every order ever taken is either still open or has been served (and deleted),
+    # so open + served + 1 gives a unique number that never gets reused
+    served = sum(od.get_slot_value(dish_state, "served") for _, dish_state in od.get_all_instances("DishState"))
+    number = len(od.get_all_instances("Order")) + served + 1
     order = od.create_object(f"Order{number}", "Order")
 
     od.set_slot_value(order, "arrivedAt", time)
@@ -243,7 +269,32 @@ def get_actions(od: ODAPI):
     # Dictionary mapping "Action text" to the (partial) function that is executed
     actions = {}
 
-    # TODO: Determine the currently possible actions and add them to the actions dictionary
+    # receiving an order
+    if precondition_can_take_order(od):
+        for dish_name, dish in od.get_all_instances("Dish"):
+            label = f"Take order for {od.get_slot_value(dish, 'dishName')}"
+            actions[label] = partial(action_take_order, dish=dish_name)
+
+    # starting and finishing steps
+    for step_state_name, step_state in od.get_all_instances("StepState"):
+        step = od.get_target(od.get_outgoing(step_state, "stateOfStep")[0])
+        order = od.get_target(od.get_outgoing(step_state, "stateOfOrder")[0])
+        step_text = f"step {od.get_slot_value(step, 'number')} ({od.get_slot_value(step, 'description')}) of {od.get_name(order)}"
+
+        if precondition_can_start_step(od, step_state_name):
+            actions[f"Start {step_text}"] = partial(action_start_step, step_state=step_state_name)
+
+        if precondition_can_finish_step(od, step_state_name):
+            actions[f"Finish {step_text}"] = partial(action_finish_step, step_state=step_state_name)
+
+    # serving an order
+    for order_name, _ in od.get_all_instances("Order"):
+        if precondition_can_serve_order(od, order_name):
+            actions[f"Serve {order_name}"] = partial(action_serve_order, order=order_name)
+
+    # time only moves on if nothing else (except taking an order) can happen anymore
+    if precondition_can_advance_time(od):
+        actions["Advance time"] = action_advance_time
 
     return make_actions_pure(actions.items(), od)
 
@@ -261,8 +312,20 @@ def make_actions_pure(actions, od):
 
 
 def termination_condition(od: ODAPI):
-    # TODO: implement the termination conditions
-    #  Returning None means no termination condition is satisfied
-    #  Otherwise, return a string with the reason for termination
+    # Returning None means no termination condition is satisfied
+    # Otherwise, return a string with the reason for termination
+
+    # 1. in total, three orders have been served
+    total_served = sum(od.get_slot_value(dish_state, "served") for _, dish_state in od.get_all_instances("DishState"))
+    if total_served >= 3:
+        return f"{total_served} orders served. The shift is finished successfully"
+
+    # 2. an order has taken twice as long as its dish's cooktime
+    time = get_time(od)
+    for order_name, order in od.get_all_instances("Order"):
+        dish = od.get_target(od.get_outgoing(order, "OrderDish")[0])
+        waited = time - od.get_slot_value(order, "arrivedAt")
+        if waited >= 2 * od.get_slot_value(dish, "cooktime"):
+            return f"{order_name} for {od.get_slot_value(dish, 'dishName')} has waited {waited} time-steps. The customer leaves angry"
 
     return None

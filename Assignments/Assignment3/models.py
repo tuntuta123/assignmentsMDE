@@ -1,4 +1,4 @@
-# TODO: add your meta-model
+# add your meta-model
 mm_dish = """
     Dish:Class{
         constraint = ```
@@ -194,7 +194,7 @@ mm_dish = """
     
 """
 
-# TODO: add your runtime meta-model
+# add your runtime meta-model
 rt_mm_dish = mm_dish + """
     Clock:Class {
         lower_cardinality = 1;
@@ -213,9 +213,8 @@ rt_mm_dish = mm_dish + """
         optional = False;
     }
 
+    # every order is for exactly one dish, a dish can be ordered any number of times
     OrderDish:Association (Order -> Dish){
-        source_lower_cardinality = 1;
-        source_upper_cardinality = 1;
         target_lower_cardinality = 1;
         target_upper_cardinality = 1;
     }
@@ -238,18 +237,17 @@ rt_mm_dish = mm_dish + """
     }
     
     StepState:Class {
+        # if finishedAt is set, startedAt must also be set and be strictly smaller
         constraint = ```
-            result = True
-            if get_slot_value(this, "finishedAt") is not None:
-                result = get_slot_value(this, "startedAt") < get_slot_value(this, "finishedAt");
-                
-            result
-        ```
+            (not has_slot(this, "finishedAt")) or (
+                has_slot(this, "startedAt")
+                and get_slot_value(this, "startedAt") < get_slot_value(this, "finishedAt")
+            )
+        ```;
     }
     :Inheritance (StepState -> State)
+    # every StepState belongs to exactly one step, a step has one StepState per active order
     stateOfStep:Association (StepState -> Step) {
-        source_lower_cardinality = 1;
-        source_upper_cardinality = 1;
         target_lower_cardinality = 1;
         target_upper_cardinality = 1;
     }
@@ -261,12 +259,12 @@ rt_mm_dish = mm_dish + """
       
     StepState_startedAt:AttributeLink (StepState -> Integer){
         name = "startedAt";
-        optional = False;
+        optional = True;
     }
     
     StepState_finishedAt:AttributeLink (StepState -> Integer){
         name = "finishedAt";
-        optional = False;
+        optional = True;
     }
     
     
@@ -303,66 +301,144 @@ rt_mm_dish = mm_dish + """
     }
 
     toolNotDoubleUsed:GlobalConstraint {
+        # a tool is never used by more than one running step (started but not finished) at the same time
         constraint = ```
-            result = True
-        
-            active_step_states = []
-            for _, stepState in get_all_instances("StepState"):
-                if get_slot(stepState, "finishedAt") is None and get_slot(stepState, "startedAt"):
-                    active_step_states.append(stepState)
-            
-            active_tools = []
-            for step_state in active_step_states:
-                step = get_outgoing(step_state, "stateOfStep")
-                tools = get_outgoing(step, "hasTool")
-                for tool_link in tools:
-                    tool = get_target(tool_link)
-                    if tool in active_tools: 
-                        result = False
-                    else:
-                        active_tools.append(tool)
-                    
-                    if result = False:
-                        break    
-                    
-            result
-        ```
+            used_tools = []
+            ok = True
+            for _, step_state in get_all_instances("StepState"):
+                if has_slot(step_state, "startedAt") and not has_slot(step_state, "finishedAt"):
+                    step = get_target(get_outgoing(step_state, "stateOfStep")[0])
+                    for tool_link in get_outgoing(step, "hasTool"):
+                        tool = get_target(tool_link)
+                        if tool in used_tools:
+                            ok = False
+                        used_tools.append(tool)
+            ok
+        ```;
     }
-    
-    CookNotDoubleBooked:GlobalConstraint {
+
+    cookNotDoubleBooked:GlobalConstraint {
+        # a cook never works on more than one running attended step at the same time
+        # (unattended steps don't occupy the cook)
         constraint = ```
-            result = True
-        
-            active_step_states = []
-            for _, stepState in get_all_instances("StepState"):
-                if get_slot(stepState, "finishedAt") is None and get_slot(stepState, "startedAt"):
-                    active_step_states.append(stepState)
-            
-            active_cooks = []
-            for step_state in active_step_states:
-                step = get_outgoing(step_state, "stateOfStep")
-                cooks = get_outgoing(step, "hasCook")
-                for cook_link in cooks:
-                    cook = get_target(cook_link)
-                    if cook in active_cooks: 
-                        result = False
-                    else:
-                        active_cooks.append(cook)
-                    
-                    if result = False:
-                        break    
-                    
-            result
-        ```
+            busy_cooks = []
+            ok = True
+            for _, step_state in get_all_instances("StepState"):
+                if has_slot(step_state, "startedAt") and not has_slot(step_state, "finishedAt"):
+                    step = get_target(get_outgoing(step_state, "stateOfStep")[0])
+                    action = get_target(get_outgoing(step, "hasAction")[0])
+                    if get_slot_value(action, "attended"):
+                        for cook_link in get_outgoing(step, "hasCook"):
+                            cook = get_target(cook_link)
+                            if cook in busy_cooks:
+                                ok = False
+                            busy_cooks.append(cook)
+            ok
+        ```;
     }
 """
 
 
 
-# TODO: add a valid instance of your meta-model
+# add a valid instance of your meta-model
 m_dish = """
+    boiledNoodles:Dish {
+    dishName = "boiled noodles";
+    difficulty = 1;
+    cooktime = 5; 
+    serves = 2;
+    }
+
+    chef:Cook {
+    name = "Freddy";
+    skillLevel = 1;
+    }
+
+    pot:Pot
+    stove:Stove
+
+    water:Water {
+        unit = "liter";
+        amount = 2;
+    }
+    noodles:Noodles {
+        unit = "grams";
+        amount = 200;
+    }
+    salt:Salt {
+        unit = "grams";
+        amount = 5;
+    }
+
+    cooking:Cooking {
+        attended = True;
+    }
+    mixing:Mixing {
+        attended = True;
+    }
+
+    step1:Step {
+        number = 1;
+        description = "Boil water and cook the noodles";
+        duration = 3;
+    }
+
+    step2:Step {
+        number = 2;
+        description = "add salt and mix";
+        duration = 1;
+    }
+
+    :hasStep (boiledNoodles -> step1)
+    :hasStep (boiledNoodles -> step2)
+
+    :nextStep (step1 -> step2)
+
+    :hasAction (step1 -> cooking)
+    :hasAction (step2 -> mixing)
+
+    :hasCook (step1 -> chef)
+    :hasCook (step2 -> chef)
+
+    :hasIngredient (step1 -> water)
+    :hasIngredient (step1 -> noodles)
+    :hasIngredient (step2 -> salt)
+
+    :hasTool (step1 -> pot)
+    :hasTool (step1 -> stove)
+    :hasTool (step2 -> pot)
+
 """
 
-# TODO: add a valid instance of your additional runtime information
+# add a valid instance of your additional runtime information
 rt_m_dish = m_dish + """
+    # the shift starts at time 0
+    clock:Clock {
+        time = 0;
+    }
+
+    # nothing has been served yet
+    boiledNoodlesState:DishState {
+        served = 0;
+    }
+    :stateOfDish (boiledNoodlesState -> boiledNoodles)
+
+    # all tools are free at the start
+    potState:ToolState {
+        inUse = False;
+    }
+    :stateOfTool (potState -> pot)
+
+    stoveState:ToolState {
+        inUse = False;
+    }
+    :stateOfTool (stoveState -> stove)
+
+    # the cook is free and hasn't done anything yet, so lastMovedAt is not set
+    chefState:CookState {
+        busy = False;
+    }
+    :stateOfCook (chefState -> chef)
+
+    # Orders and StepStates are created at runtime by action_take_order
 """
