@@ -37,6 +37,7 @@ def precondition_tools_free(od: ODAPI, step: str):
     step = od.get(step)
     required_tools = [od.get_target(link) for link in od.get_outgoing(step, "hasTool")]
 
+    # iterate through all required tools, if one of them is in use, return false
     for tool in required_tools:
         tool_state = od.get_source(od.get_incoming(tool, "stateOfTool")[0])
         if od.get_slot_value(tool_state, "inUse"):
@@ -52,6 +53,7 @@ def precondition_cooks_not_moved(od: ODAPI, step: str):
     time = get_time(od)
     for cook in cooks:
         cook_state = od.get_source(od.get_incoming(cook, "stateOfCook")[0])
+        # if cook is lastMovedAt in the current time state, return false
         if od.get_slot_value_default(cook_state, "lastMovedAt", None) == time:
             return False
     return True
@@ -92,9 +94,11 @@ def precondition_can_finish_step(od: ODAPI, step_state: str):
     # Check whether all conditions to finish the step are met
     step_state = od.get(step_state)
 
+    # condition needs to start
     if not od.has_slot(step_state, "startedAt"):
         return False
 
+    # condition shouldn't be finished
     if od.has_slot(step_state, "finishedAt"):
         return False
 
@@ -191,6 +195,7 @@ def action_start_step(od: ODAPI, step_state: str):
 
     required_tools = [od.get_target(link) for link in od.get_outgoing(step, "hasTool")]
 
+    # set busy tools
     for tool in required_tools:
         tool_state = od.get_source(od.get_incoming(tool, "stateOfTool")[0])
         od.set_slot_value(tool_state, "inUse", True)
@@ -200,6 +205,7 @@ def action_start_step(od: ODAPI, step_state: str):
 
     required_cooks = [od.get_target(link) for link in od.get_outgoing(step, "hasCook")]
 
+    # set cooks
     for cook in required_cooks:
         cook_state = od.get_source(od.get_incoming(cook, "stateOfCook")[0])
         od.set_slot_value(cook_state, "busy", attended)
@@ -236,10 +242,11 @@ def action_serve_order(od: ODAPI, order: str):
     # Remove the order and all associated elements from the model and increase the count
     order = od.get(order)
 
-    dish = od.get_target( od.get_outgoing(order, "OrderDish")[0])
+    dish = od.get_target(od.get_outgoing(order, "OrderDish")[0])
 
     dish_state = od.get_source(od.get_incoming(dish, "stateOfDish")[0])
 
+    #increment served count
     od.set_slot_value(dish_state,"served", od.get_slot_value(dish_state, "served") + 1)
 
     step_states = [ od.get_source(link) for link in od.get_incoming(order, "stateOfOrder")]
