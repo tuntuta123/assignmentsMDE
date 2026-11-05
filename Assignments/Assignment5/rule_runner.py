@@ -18,6 +18,7 @@ from simulator import KitchenSimulator
 # Rules the user chooses from, grouped by priority (high -> low).
 ACTION_RULES = [
     # TODO: add your rules, grouped by priority (= list of lists)
+    ["receiveOrder"]
 ]
 
 # Rules that keep the runtime state consistent.

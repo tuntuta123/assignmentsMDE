@@ -1,0 +1,3 @@
+# an order can be taken for any dish, at the current time
+dish:RAM_Dish
+clock:RAM_Clock

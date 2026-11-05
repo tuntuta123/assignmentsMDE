@@ -1,0 +1,9 @@
+# The dish and clock still exist
+dish:RAM_Dish
+clock:RAM_Clock
+
+# create a new order that arrived at the current time and link it to the dish
+order:RAM_Order {
+    RAM_arrivedAt = `get_slot_value(matched("clock"), "time")`;
+}
+:RAM_OrderDish (order -> dish)
