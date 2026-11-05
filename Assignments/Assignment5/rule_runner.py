@@ -32,8 +32,35 @@ class TerminationCondition:
         self.state = state
         self.rt_mm_ramified = ramify(state, rt_mm)
 
+        # these patterns were largely based on the termination conditions in assignment 3
         patterns_cs = {
-            # TODO: add termination condition patterns, key = reason, value = pattern
+            # add termination condition patterns, key = reason, value = pattern
+
+            # terminate if 3 orders have been served across all dishes, so use the clock as a sort of anchor to check all the dishes
+            # so for every dish get the served attribute and terminate if the sum is >= 3
+            "Three orders have been served. ": """            
+            clock:RAM_Clock {
+            condition = `sum([get_slot_value(dish_state, "served") for _, dish_state in get_all_instances("DishState")]) >= 3`;
+            }
+            """,
+
+            # use the clock as an anchor again, here we want to return True if we need to terminate,
+            # so the result is inverted compared to assignment 3
+            "One order has taken double its cooktime. ": """
+            clock: RAM_Clock{
+                condition = ```
+                terminate = False
+                time = get_slot_value(this, "time")
+                for _, order in get_all_instances("Order"):
+                    dish = get_target(get_outgoing(order, "OrderDish")[0])
+                    waited = time - get_slot_value(order, "arrivedAt")
+                    if waited >= 2 * get_slot_value(dish, "cooktime"):
+                        terminate = True
+                
+                terminate
+                ```;
+            }
+            """
         }
 
         self.patterns = {cause: parse_od(state, pattern_cs, self.rt_mm_ramified)
@@ -76,10 +103,32 @@ class BookkeepingActionGenerator:
         return ODAPI(od.state, od.m, od.mm), applied
 
 
+# copied over from assignment 3 for the render_text function
+def get_time(od: ODAPI):
+    _, clock = od.get_all_instances("Clock")[0]
+    return od.get_slot_value(clock, "time")
+
+
 def render_text(od: ODAPI):
-    txt = ""
-    # TODO: add in your rendering function (reuse from assignment 3 is valid)
-    return txt
+    # copied from assignment 3
+    # Short description of the current state
+    parts = []
+
+    # served count per dish, and the total out of the 3 needed to finish the shift
+    total_served = 0
+    for _, dish_state in od.get_all_instances("DishState"):
+        dish = od.get_target(od.get_outgoing(dish_state, "stateOfDish")[0])
+        served = od.get_slot_value(dish_state, "served")
+        total_served += served
+        parts.append(f"{od.get_slot_value(dish, 'dishName')}: {served} served")
+
+    # all open orders with their arrival time
+    for order_name, order in od.get_all_instances("Order"):
+        dish = od.get_target(od.get_outgoing(order, "OrderDish")[0])
+        parts.append(f"{order_name} for {od.get_slot_value(dish, 'dishName')} (arrived at {od.get_slot_value(order, 'arrivedAt')})")
+
+    header = f"[t = {get_time(od)} | {total_served}/3 served]"
+    return " - ".join([header] + parts)
 
 
 def get_filename(name, kind):
