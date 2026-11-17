@@ -1,0 +1,19 @@
+# find an order and its dish
+order:RAM_Order
+dish:RAM_Dish
+orderDish:RAM_OrderDish (order -> dish)
+
+# find a step belonging to the dish
+step:RAM_Step
+dishStep:RAM_hasStep (dish -> step)
+
+# find the step state and make sure it hasn't started yet
+stepState:RAM_StepState {
+    condition = `has_slot(this, "startedAt") == False`;
+}
+stepStateStep:RAM_stateOfStep (stepState -> step)
+stepStateOrder:RAM_stateOfOrder (stepState -> order)
+
+# get the current clock
+clock:RAM_Clock
+

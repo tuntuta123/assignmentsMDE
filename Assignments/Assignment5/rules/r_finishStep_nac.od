@@ -1,0 +1,14 @@
+# block if a cook has already acted in the current timestep
+step:RAM_Step
+clock:RAM_Clock
+
+cook:RAM_Cook
+stepCook:RAM_hasCook (step -> cook)
+
+cookState:RAM_CookState {
+    condition = ```
+        has_slot(this, "lastMovedAt") == True
+        and get_slot_value(this, "lastMovedAt") == get_slot_value(matched("clock"), "time")
+    ```;
+}
+cookStateCook:RAM_stateOfCook (cookState -> cook)

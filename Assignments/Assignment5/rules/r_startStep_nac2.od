@@ -1,0 +1,10 @@
+# block if a required tool is in use
+step:RAM_Step
+
+tool:RAM_Tool
+stepTool:RAM_hasTool (step -> tool)
+
+toolState:RAM_ToolState {
+    RAM_inUse = `get_value(this) == True`;
+}
+toolStateTool:RAM_stateOfTool (toolState -> tool)

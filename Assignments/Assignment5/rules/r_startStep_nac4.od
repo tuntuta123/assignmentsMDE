@@ -1,0 +1,15 @@
+# block if another step of the same order has started or finished in the current timestep
+order:RAM_Order
+clock:RAM_Clock
+
+otherStepState:RAM_StepState {
+    condition = ```
+        (has_slot(this, "startedAt") == True
+        and get_slot_value(this, "startedAt") == get_slot_value(matched("clock"), "time"))
+        or
+        (has_slot(this, "finishedAt") == True
+        and get_slot_value(this, "finishedAt") == get_slot_value(matched("clock"), "time"))
+    ```;
+}
+
+otherStateOrder:RAM_stateOfOrder (otherStepState -> order)

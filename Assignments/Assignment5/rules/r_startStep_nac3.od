@@ -1,0 +1,16 @@
+# block if the previous step is not finished
+step:RAM_Step
+order:RAM_Order
+clock:RAM_Clock
+
+previousStep:RAM_Step
+previousStepLink:RAM_nextStep (previousStep -> step)
+
+previousState:RAM_StepState {
+    condition = ```
+        has_slot(this, "finishedAt") == False
+        or get_slot_value(this, "finishedAt") >= get_slot_value(matched("clock"), "time")
+    ```;
+}
+previousStateStep:RAM_stateOfStep (previousState -> previousStep)
+previousStateOrder:RAM_stateOfOrder (previousState -> order)

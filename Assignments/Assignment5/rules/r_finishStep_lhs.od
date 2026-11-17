@@ -1,0 +1,22 @@
+# get the step and the clock
+step:RAM_Step
+clock:RAM_Clock
+
+# find a started but unfinished step whose duration has passed
+stepState:RAM_StepState {
+    condition = ```
+        has_slot(this, "startedAt") == True
+        and has_slot(this, "finishedAt") == False
+        and (
+            duration = get_slot_value(matched("step"), "duration")
+            elapsed = get_slot_value(matched("clock"), "time") - get_slot_value(this, "startedAt")
+
+            elapsed >= max(1, duration)
+        )
+    ```;
+}
+
+stepStateStep:RAM_stateOfStep (stepState -> step)
+# match the order of the step (nac3)
+order:RAM_Order
+stepStateOrder:RAM_stateOfOrder (stepState -> order)

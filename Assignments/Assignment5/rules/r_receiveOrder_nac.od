@@ -1,0 +1,8 @@
+# match the clock as in the lhs
+clock:RAM_Clock
+
+# prevent receiving another order if an order has already arrived during the current time-step
+
+order:RAM_Order {
+    RAM_arrivedAt = `get_value(this) == get_slot_value(matched("clock"), "time")`;
+}

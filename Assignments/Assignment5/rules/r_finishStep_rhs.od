@@ -1,0 +1,32 @@
+# match the step and the clock
+step:RAM_Step
+clock:RAM_Clock
+# match the finishedAt value with the current clock time
+stepState:RAM_StepState {
+    RAM_finishedAt = `get_slot_value(matched("clock"), "time")`;
+}
+stepStateStep:RAM_stateOfStep (stepState -> step)
+
+# free all the cooks and the tools
+updateResources:GlobalCondition {
+    condition = ```
+        # match the step with lhs
+        step_obj = matched("step")
+        time = get_slot_value(matched("clock"), "time")
+
+        for link in get_outgoing(step_obj, "hasTool"):
+            tool = get_target(link)
+            tool_state = get_source(get_incoming(tool, "stateOfTool")[0])
+            set_slot_value(tool_state, "inUse", False)
+
+        for link in get_outgoing(step_obj, "hasCook"):
+            cook = get_target(link)
+            cook_state = get_source(get_incoming(cook, "stateOfCook")[0])
+            # free the cook and record its last action time
+            set_slot_value(cook_state, "busy", False)
+            set_slot_value(cook_state, "lastMovedAt", time)
+    ```;
+}
+# match the order of the step (nac3)
+order:RAM_Order
+stepStateOrder:RAM_stateOfOrder (stepState -> order)

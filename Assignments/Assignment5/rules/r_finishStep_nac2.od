@@ -1,0 +1,15 @@
+# block if an unattended action has a busy cook
+step:RAM_Step
+
+action:RAM_Action {
+    RAM_attended = `get_value(this) == False`;
+}
+stepAction:RAM_hasAction (step -> action)
+
+cook:RAM_Cook
+stepCook:RAM_hasCook (step -> cook)
+
+cookState:RAM_CookState {
+    RAM_busy = `get_value(this) == True`;
+}
+cookStateCook:RAM_stateOfCook (cookState -> cook)

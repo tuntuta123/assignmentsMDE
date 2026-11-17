@@ -1,0 +1,42 @@
+#preserve the order, the dish, the step and the clock
+order:RAM_Order
+dish:RAM_Dish
+:RAM_OrderDish (order -> dish)
+
+step:RAM_Step
+:RAM_hasStep (dish -> step)
+
+clock:RAM_Clock
+
+#set started at with the clock value
+stepState:RAM_StepState {
+    RAM_startedAt = `get_slot_value(matched("clock"), "time")`;
+}
+:RAM_stateOfStep (stepState -> step)
+:RAM_stateOfOrder (stepState -> order)
+
+# update all tools to inUse and cooks to busy
+updateResources:GlobalCondition {
+    condition = ```
+        # match the step with lhs
+        step_obj = matched("step")
+        time = get_slot_value(matched("clock"), "time")
+
+        # bring the action of each step
+        action = get_target(get_outgoing(step_obj, "hasAction")[0])
+        # see if the action is attended or not
+        attended = get_slot_value(action, "attended")
+
+        for link in get_outgoing(step_obj, "hasTool"):
+            tool = get_target(link)
+            tool_state = get_source(get_incoming(tool, "stateOfTool")[0])
+            set_slot_value(tool_state, "inUse", True)
+
+        for link in get_outgoing(step_obj, "hasCook"):
+            cook = get_target(link)
+            cook_state = get_source(get_incoming(cook, "stateOfCook")[0])
+            # set the busy value with attended bool value of the action
+            set_slot_value(cook_state, "busy", attended)
+            set_slot_value(cook_state, "lastMovedAt", time)
+    ```;
+}
