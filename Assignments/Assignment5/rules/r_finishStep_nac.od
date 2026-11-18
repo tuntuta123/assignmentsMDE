@@ -7,8 +7,8 @@ stepCook:RAM_hasCook (step -> cook)
 
 cookState:RAM_CookState {
     condition = ```
-        has_slot(this, "lastMovedAt") == True
-        and get_slot_value(this, "lastMovedAt") == get_slot_value(matched("clock"), "time")
+        (has_slot(this, "lastMovedAt") == True
+        and get_slot_value(this, "lastMovedAt") == get_slot_value(matched("clock"), "time"))
     ```;
 }
 cookStateCook:RAM_stateOfCook (cookState -> cook)

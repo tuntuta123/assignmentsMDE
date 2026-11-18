@@ -8,8 +8,8 @@ previousStepLink:RAM_nextStep (previousStep -> step)
 
 previousState:RAM_StepState {
     condition = ```
-        has_slot(this, "finishedAt") == False
-        or get_slot_value(this, "finishedAt") >= get_slot_value(matched("clock"), "time")
+        (has_slot(this, "finishedAt") == False
+        or get_slot_value(this, "finishedAt") >= get_slot_value(matched("clock"), "time"))
     ```;
 }
 previousStateStep:RAM_stateOfStep (previousState -> previousStep)

@@ -16,7 +16,7 @@ stepState:RAM_StepState {
 :RAM_stateOfOrder (stepState -> order)
 
 # update all tools to inUse and cooks to busy
-updateResources:GlobalCondition {
+:GlobalCondition {
     condition = ```
         # match the step with lhs
         step_obj = matched("step")

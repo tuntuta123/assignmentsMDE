@@ -8,7 +8,7 @@ stepState:RAM_StepState {
 stepStateStep:RAM_stateOfStep (stepState -> step)
 
 # free all the cooks and the tools
-updateResources:GlobalCondition {
+:GlobalCondition {
     condition = ```
         # match the step with lhs
         step_obj = matched("step")

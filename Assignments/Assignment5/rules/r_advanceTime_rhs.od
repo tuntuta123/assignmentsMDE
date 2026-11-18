@@ -1,0 +1,4 @@
+# move the clock one time-step forward
+clock:RAM_Clock {
+    RAM_time = `get_slot_value(matched("clock"), "time") + 1`;
+}

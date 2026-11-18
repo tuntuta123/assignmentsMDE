@@ -5,5 +5,15 @@ clock:RAM_Clock
 # create a new order that arrived at the current time and link it to the dish
 order:RAM_Order {
     RAM_arrivedAt = `get_slot_value(matched("clock"), "time")`;
+
+    # Also create a stepstate for each step in this new order
+    # becuase the number of steps is variable we cannot use a fixed pattern, so we use code
+    condition = ```
+        for step_link in get_outgoing(matched("dish"), "hasStep"):
+            step = get_target(step_link)
+            step_state = create_object(f"{get_name(this)}_{get_name(step)}_state", "StepState")
+            create_link(None, "stateOfStep", step_state, step)
+            create_link(None, "stateOfOrder", step_state, this)
+    ```;
 }
 :RAM_OrderDish (order -> dish)

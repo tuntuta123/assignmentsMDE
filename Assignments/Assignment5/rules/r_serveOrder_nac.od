@@ -1,0 +1,5 @@
+# block if the matched step is not the last step of the dish
+lastStep:RAM_Step
+
+followingStep:RAM_Step
+lastStepNext:RAM_nextStep (lastStep -> followingStep)

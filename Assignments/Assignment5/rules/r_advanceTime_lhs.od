@@ -1,0 +1,4 @@
+# the clock (the 'time' slot has to occur in both LHS and RHS to be updated, so it can have any value here)
+clock:RAM_Clock {
+    RAM_time = `True`;
+}

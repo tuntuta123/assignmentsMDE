@@ -1,0 +1,5 @@
+stepState:RAM_StepState
+
+# if the order still exists it hasn't been served yet
+order:RAM_Order
+stepStateOrder:RAM_stateOfOrder (stepState -> order)

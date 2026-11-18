@@ -8,11 +8,11 @@ stepCook:RAM_hasCook (step -> cook)
 # cook shouldn't be busy nor should it be moved in the current timestep
 cookState:RAM_CookState {
     condition = ```
-        get_slot_value(this, "busy") == True
+        (get_slot_value(this, "busy") == True
         or (
             has_slot(this, "lastMovedAt") == True
             and get_slot_value(this, "lastMovedAt") == get_slot_value(matched("clock"), "time")
-        )
+        ))
     ```;
 }
 cookStateCook:RAM_stateOfCook (cookState -> cook)

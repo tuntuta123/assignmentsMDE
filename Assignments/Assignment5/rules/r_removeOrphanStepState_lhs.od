@@ -1,0 +1,3 @@
+# we only explicitly remove the last step when an order is served
+# so all the previous steps are orphaned -> we need to delete them
+stepState:RAM_StepState

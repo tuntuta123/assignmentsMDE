@@ -1,0 +1,26 @@
+# find an order and the dish it is for
+order:RAM_Order
+dish:RAM_Dish
+orderDish:RAM_OrderDish (order -> dish)
+
+# the state of that dish keeps track of how many orders have been served
+dishState:RAM_DishState {
+    RAM_served = `True`;
+}
+dishStateDish:RAM_stateOfDish (dishState -> dish)
+
+clock:RAM_Clock
+
+# a step of the dish (nac makes sure it's the last step of a dish)
+lastStep:RAM_Step
+dishLastStep:RAM_hasStep (dish -> lastStep)
+
+# the last step must be finished for this order, in an earlier time-step than the current one
+lastStepState:RAM_StepState {
+    condition = ```
+        (has_slot(this, "finishedAt")
+        and get_slot_value(this, "finishedAt") < get_slot_value(matched("clock"), "time"))
+    ```;
+}
+lastStepStateStep:RAM_stateOfStep (lastStepState -> lastStep)
+lastStepStateOrder:RAM_stateOfOrder (lastStepState -> order)

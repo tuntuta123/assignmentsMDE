@@ -17,14 +17,15 @@ from simulator import KitchenSimulator
 
 # Rules the user chooses from, grouped by priority (high -> low).
 ACTION_RULES = [
-    # TODO: add your rules, grouped by priority (= list of lists)
-    ["receiveOrder"]
+    ["startStep", "finishStep", "serveOrder"],
+    # when nothing else can be done, we can advance time or receive an order
+    ["receiveOrder", "advanceTime"],
 ]
 
 # Rules that keep the runtime state consistent.
 # They are not offered as choices: after every action they are applied until none of them matches anymore.
 BOOKKEEPING_RULES = [
-    # TODO: add bookkeeping rules, all have the same priority
+    "removeOrphanStepState",  # delete the leftover StepStates of a served (deleted) order
 ]
 
 
@@ -39,7 +40,7 @@ class TerminationCondition:
 
             # terminate if 3 orders have been served across all dishes, so use the clock as a sort of anchor to check all the dishes
             # so for every dish get the served attribute and terminate if the sum is >= 3
-            "Three orders have been served. ": """            
+            "Three orders have been served": """            
             clock:RAM_Clock {
             condition = `sum([get_slot_value(dish_state, "served") for _, dish_state in get_all_instances("DishState")]) >= 3`;
             }
@@ -47,7 +48,7 @@ class TerminationCondition:
 
             # use the clock as an anchor again, here we want to return True if we need to terminate,
             # so the result is inverted compared to assignment 3
-            "One order has taken double its cooktime. ": """
+            "One order has taken double its cooktime": """
             clock: RAM_Clock{
                 condition = ```
                 terminate = False

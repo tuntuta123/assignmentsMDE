@@ -1,0 +1,13 @@
+# dish, step and clock stay the same
+dish:RAM_Dish
+clock:RAM_Clock
+lastStep:RAM_Step
+dishLastStep:RAM_hasStep (dish -> lastStep)
+
+# count the served order for its dish
+dishState:RAM_DishState {
+    RAM_served = `get_slot_value(matched("dishState"), "served") + 1`;
+}
+dishStateDish:RAM_stateOfDish (dishState -> dish)
+
+# order, orderDish, lastStepState and its links are not in the RHS, so they are deleted:
