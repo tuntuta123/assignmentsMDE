@@ -1,0 +1,14 @@
+# Places, transitions, arcs (and only one kind of arc)
+
+PNConnectable:Class { abstract = True; }
+
+arc:Association (PNConnectable -> PNConnectable)
+
+PNPlace:Class
+PNTransition:Class
+
+# inhibitor arc
+inh_arc:Association (PNPlace -> PNTransition)
+
+:Inheritance (PNPlace -> PNConnectable)
+:Inheritance (PNTransition -> PNConnectable)
