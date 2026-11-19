@@ -1,0 +1,312 @@
+# Auto generated topified runtime Meta-Model, merged Kitchen and Petri Nets
+toolNotDoubleUsed:GlobalConstraint {
+    constraint = ```
+        used_tools = []
+        ok = True
+        for _, step_state in get_all_instances("StepState"):
+            if has_slot(step_state, "startedAt") and not has_slot(step_state, "finishedAt"):
+                step = get_target(get_outgoing(step_state, "stateOfStep")[0])
+                for tool_link in get_outgoing(step, "hasTool"):
+                    tool = get_target(tool_link)
+                    if tool in used_tools:
+                        ok = False
+                    used_tools.append(tool)
+        ok
+    ```;
+}
+cookNotDoubleBooked:GlobalConstraint {
+    constraint = ```
+        busy_cooks = []
+        ok = True
+        for _, step_state in get_all_instances("StepState"):
+            if has_slot(step_state, "startedAt") and not has_slot(step_state, "finishedAt"):
+                step = get_target(get_outgoing(step_state, "stateOfStep")[0])
+                action = get_target(get_outgoing(step, "hasAction")[0])
+                if get_slot_value(action, "attended"):
+                    for cook_link in get_outgoing(step, "hasCook"):
+                        cook = get_target(cook_link)
+                        if cook in busy_cooks:
+                            ok = False
+                        busy_cooks.append(cook)
+        ok
+    ```;
+}
+Flour:Class
+Action:Class {
+    abstract = True;
+}
+Top:Class {
+    abstract = True;
+}
+Salt:Class
+Ingredient:Class {
+    abstract = True;
+    constraint = `get_slot_value(this, "amount") > 0`;
+}
+Vegetable:Class
+PNConnectable:Class {
+    abstract = True;
+}
+Cooking:Class
+Oven:Class {
+    upper_cardinality = 1;
+}
+Noodles:Class
+Pot:Class {
+    upper_cardinality = 6;
+}
+CookState:Class
+ToolState:Class
+Clock:Class {
+    lower_cardinality = 1;
+    upper_cardinality = 1;
+}
+Mixing:Class
+Knife:Class {
+    upper_cardinality = 6;
+}
+Baking:Class
+Dish:Class {
+    constraint = ```
+        steps = [get_target(l) for l in get_outgoing(this, "hasStep")]  # collect all steps connected to this dish
+        nums = sorted(get_slot_value(step, "number") for step in steps) 
+        total_duration = sum(get_slot_value(step, "duration") for step in steps)
+        
+        (
+            get_slot_value(this, "difficulty") > 0
+            and get_slot_value(this, "cooktime") >= 0
+            and get_slot_value(this, "serves") > 0
+            and nums == list(range(1, len(nums) + 1))   # check if there are no gaps between steps
+            and total_duration <= get_slot_value(this, "cooktime")
+            and sum(len(get_outgoing(s, "nextStep")) for s in steps) == len(steps) - 1 # silly check for step count
+        )
+    ```;
+}
+Tool:Class {
+    abstract = True;
+}
+Cook:Class {
+    constraint = `get_slot_value(this, "skillLevel") >= 0`;
+}
+State:Class {
+    abstract = True;
+}
+Stove:Class {
+    upper_cardinality = 4;
+}
+DishState:Class
+StepState:Class {
+    constraint = ```
+        (not has_slot(this, "finishedAt")) or (
+            has_slot(this, "startedAt")
+            and get_slot_value(this, "startedAt") < get_slot_value(this, "finishedAt")
+        )
+    ```;
+}
+PNPlaceState:Class
+PNPlace:Class
+PNTransition:Class
+Step:Class {
+    constraint = ```
+        dish = get_source(get_incoming(this, "hasStep")[0])
+        dish_difficulty = get_slot_value(dish, "difficulty")
+        
+        # all cooks need to be skilled enough for the dish
+        cooks_meet_skill_level = True
+        for cook_link in get_outgoing(this, "hasCook"):
+            if get_slot_value(get_target(cook_link), "skillLevel") < dish_difficulty:
+                cooks_meet_skill_level = False
+        
+        #actions need a corresponding tool
+        action = get_type_name(get_target(get_outgoing(this, "hasAction")[0]))
+        tools = [get_type_name(get_target(l)) for l in get_outgoing(this, "hasTool")]
+        (
+            get_slot_value(this, "number") >= 1
+            and get_slot_value(this, "duration") >= 0
+            and cooks_meet_skill_level
+            and (action != "Cutting" or "Knife" in tools)
+            and (action != "Baking" or "Oven" in tools)
+            and (action != "Mixing" or "Pot" in tools)
+            and (action != "Cooking" or "Stove" in tools)
+        )
+    ```;
+}
+Order:Class
+Steak:Class
+Water:Class
+Cutting:Class
+Step_duration:AttributeLink (Step -> Integer) {
+    name = "duration";
+    optional = False;
+}
+Dish_serves:AttributeLink (Dish -> Integer) {
+    name = "serves";
+    optional = False;
+}
+Step_number:AttributeLink (Step -> Integer) {
+    optional = False;
+    name = "number";
+}
+Cook_name:AttributeLink (Cook -> String) {
+    name = "name";
+    optional = False;
+}
+Action_attended:AttributeLink (Action -> Boolean) {
+    optional = False;
+    name = "attended";
+}
+Dish_cooktime:AttributeLink (Dish -> Integer) {
+    name = "cooktime";
+    optional = False;
+}
+Clock_time:AttributeLink (Clock -> Integer) {
+    constraint = `get_value(get_target(this)) >= 0`;
+    name = "time";
+    optional = False;
+}
+Ingredient_unit:AttributeLink (Ingredient -> String) {
+    optional = False;
+    name = "unit";
+}
+Ingredient_amount:AttributeLink (Ingredient -> Integer) {
+    optional = False;
+    name = "amount";
+}
+PNPlaceState_numTokens:AttributeLink (PNPlaceState -> Integer) {
+    constraint = `"numTokens cannot be negative" if get_value(get_target(this)) < 0 else None`;
+    name = "numTokens";
+    optional = False;
+}
+StepState_startedAt:AttributeLink (StepState -> Integer) {
+    name = "startedAt";
+    optional = True;
+}
+Order_arrivedAt:AttributeLink (Order -> Integer) {
+    optional = False;
+    name = "arrivedAt";
+}
+Dish_difficulty:AttributeLink (Dish -> Integer) {
+    optional = False;
+    name = "difficulty";
+}
+StepState_finishedAt:AttributeLink (StepState -> Integer) {
+    optional = True;
+    name = "finishedAt";
+}
+ToolState_inUse:AttributeLink (ToolState -> Boolean) {
+    name = "inUse";
+    optional = False;
+}
+Cook_skillLevel:AttributeLink (Cook -> Integer) {
+    optional = False;
+    name = "skillLevel";
+}
+DishState_served:AttributeLink (DishState -> Integer) {
+    name = "served";
+    optional = False;
+}
+CookState_busy:AttributeLink (CookState -> Boolean) {
+    name = "busy";
+    optional = False;
+}
+CookState_lastMovedAt:AttributeLink (CookState -> Integer) {
+    name = "lastMovedAt";
+    optional = True;
+}
+Step_description:AttributeLink (Step -> String) {
+    optional = False;
+    name = "description";
+}
+Dish_dishName:AttributeLink (Dish -> String) {
+    name = "dishName";
+    optional = False;
+}
+OrderDish:Association (Order -> Dish) {
+    target_lower_cardinality = 1;
+    target_upper_cardinality = 1;
+}
+stateOfDish:Association (DishState -> Dish) {
+    target_upper_cardinality = 1;
+    source_lower_cardinality = 1;
+    source_upper_cardinality = 1;
+    target_lower_cardinality = 1;
+}
+stateOfCook:Association (CookState -> Cook) {
+    source_lower_cardinality = 1;
+    source_upper_cardinality = 1;
+    target_lower_cardinality = 1;
+    target_upper_cardinality = 1;
+}
+nextStep:Association (Step -> Step) {
+    source_upper_cardinality = 1;
+    target_upper_cardinality = 1;
+}
+generic_link:Association (Top -> Top)
+stateOfTool:Association (ToolState -> Tool) {
+    target_lower_cardinality = 1;
+    target_upper_cardinality = 1;
+    source_lower_cardinality = 1;
+    source_upper_cardinality = 1;
+}
+pn_of:Association (PNPlaceState -> PNPlace) {
+    target_lower_cardinality = 1;
+    target_upper_cardinality = 1;
+    source_lower_cardinality = 1;
+    source_upper_cardinality = 1;
+}
+hasCook:Association (Step -> Cook) {
+    target_lower_cardinality = 1;
+}
+hasAction:Association (Step -> Action) {
+    target_upper_cardinality = 1;
+    target_lower_cardinality = 1;
+}
+inh_arc:Association (PNPlace -> PNTransition)
+hasIngredient:Association (Step -> Ingredient)
+stateOfStep:Association (StepState -> Step) {
+    target_upper_cardinality = 1;
+    target_lower_cardinality = 1;
+}
+stateOfOrder:Association (StepState -> Order) {
+    target_lower_cardinality = 1;
+    target_upper_cardinality = 1;
+}
+arc:Association (PNConnectable -> PNConnectable)
+hasTool:Association (Step -> Tool)
+hasStep:Association (Dish -> Step) {
+    source_lower_cardinality = 1;
+    source_upper_cardinality = 1;
+    target_lower_cardinality = 1;
+}
+:Inheritance (Ingredient -> Top)
+:Inheritance (Noodles -> Ingredient)
+:Inheritance (StepState -> State)
+:Inheritance (Order -> Top)
+:Inheritance (Step -> Top)
+:Inheritance (Knife -> Tool)
+:Inheritance (PNTransition -> PNConnectable)
+:Inheritance (Stove -> Tool)
+:Inheritance (Vegetable -> Ingredient)
+:Inheritance (Action -> Top)
+:Inheritance (Oven -> Tool)
+:Inheritance (State -> Top)
+:Inheritance (Steak -> Ingredient)
+:Inheritance (Tool -> Top)
+:Inheritance (generic_link -> Top)
+:Inheritance (Cook -> Top)
+:Inheritance (ToolState -> State)
+:Inheritance (CookState -> State)
+:Inheritance (Dish -> Top)
+:Inheritance (Baking -> Action)
+:Inheritance (Clock -> Top)
+:Inheritance (Flour -> Ingredient)
+:Inheritance (DishState -> State)
+:Inheritance (Mixing -> Action)
+:Inheritance (Water -> Ingredient)
+:Inheritance (PNPlace -> PNConnectable)
+:Inheritance (PNPlaceState -> Top)
+:Inheritance (PNConnectable -> Top)
+:Inheritance (Salt -> Ingredient)
+:Inheritance (Cooking -> Action)
+:Inheritance (Cutting -> Action)
+:Inheritance (Pot -> Tool)
