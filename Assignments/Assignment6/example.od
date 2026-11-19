@@ -1,0 +1,10 @@
+# RHS code
+aStep:RAM_Step
+myPlace:RAM_PNPlace {
+    name = `f"step_{get_name(matched('aStep'))}"`;
+}
+
+# LHS of another rule
+stepPlace:RAM_PNPlace {
+    condition = `get_name(this).startswith("step")`;
+}
